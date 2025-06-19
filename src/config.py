@@ -1,4 +1,3 @@
-from micropython import const
 import asyncio
 from machine import Pin
 
@@ -11,8 +10,8 @@ MAX_VAL = 30000
 
 # server only:
 CLIENT_MAC=b'\xec\xda;\x8c\xe7\x00' # from sta.config('mac') on client device
-REFRESH_INTERVAL_MS = const(100) # add about 110ms delay because of network
-THRESHOLD = const(20000)
+REFRESH_INTERVAL_MS = 100 # add about 110ms delay because of network
+THRESHOLD = 35000
 
 def set_global_exception():
     def handle_exception(loop, context):
