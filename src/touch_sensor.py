@@ -6,18 +6,20 @@ from config import THRESHOLD
 from micropython import const
 
 _NUM_PINS = const(9)
+_ALL_PINS = range(1, _NUM_PINS + 1)
 
 async def _read_pin_async(pin):
     await asyncio.sleep_ms(30)
     return pin.read() 
 
 class MultiTouchSensor:
-    def __init__(self):
-        self._touch_pins = [None] * _NUM_PINS
+    def __init__(self, pins=_ALL_PINS):
+        self._num_pins = len(pins)
+        self._touch_pins = [None] * self.num_pins
         # Configure all the touch pins (1-9) on the ESP32 TinyS3 board
-        for pin_num in range(_NUM_PINS):
-            # self._touch_pins[pin_num] = TouchPad(Pin(pin_num + 1, mode=Pin.IN, pull=Pin.PULL_DOWN))
-            self._touch_pins[pin_num] = TouchPad(Pin(pin_num + 1))
+        for i, pin_num in enumerate(pins):
+            # self._touch_pins[i] = TouchPad(Pin(pin_num, mode=Pin.IN, pull=Pin.PULL_DOWN))
+            self._touch_pins[i] = TouchPad(Pin(pin_num))
         self.threshold = THRESHOLD
 
     def read(self):
@@ -26,14 +28,14 @@ class MultiTouchSensor:
 
     async def read_async(self):
         # Read all the touch pins
-        retval = [] * _NUM_PINS
+        retval = [] * self.num_pins
         for pin in self._touch_pins:
             retval.append(await _read_pin_async(pin))
         return retval
 
     @property
     def num_pins(self):
-        return _NUM_PINS
+        return self._num_pins
 
     @property
     def threshold(self):
