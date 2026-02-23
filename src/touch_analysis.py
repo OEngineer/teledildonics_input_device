@@ -25,23 +25,25 @@ class TouchAnalyzer:
         self._sensor = sensor
         self._n = sensor.num_pins
         self._active_threshold = active_threshold
-        self._offsets = [0] * self._n   # idle baseline per sensor
-        self._scales  = [1] * self._n   # touch range per sensor
-        self._load_calibration()
+        self._offsets = [27000] * self._n   # idle baseline per sensor
+        self._scales  = [12000] * self._n   # touch range per sensor
+        self._calibrated = self._load_calibration()
 
     # ------------------------------------------------------------------ #
     # Calibration                                                          #
     # ------------------------------------------------------------------ #
 
-    def _load_calibration(self):
+    def _load_calibration(self) -> bool:
         try:
             with open(CALIBRATION_FILE, 'r') as f:
                 data = json.load(f)
             self._offsets = data['offsets']
             self._scales  = data['scales']
             print("Calibration loaded.")
+            return True
         except (OSError, KeyError, ValueError):
             print("No valid calibration found; using defaults.")
+            return False
 
     def _save_calibration(self):
         data = {'offsets': self._offsets, 'scales': self._scales}
@@ -69,6 +71,7 @@ class TouchAnalyzer:
         rest_mins = [0x7FFFFFFF] * n
         print("Phase 1 ({} s): set the device down - do not touch it.".format(
             rest_ms // 1000))
+        input("Press Enter to start rest phase...")
         start = ticks_ms()
         while ticks_diff(ticks_ms(), start) < rest_ms:
             raw = await self._sensor.read_async()
@@ -78,8 +81,9 @@ class TouchAnalyzer:
             await asyncio.sleep_ms(sample_interval_ms)
 
         # --- Phase 2: handle ---
+        input("Press Enter to start handling phase...")
         handle_maxs = [0] * n
-        print("Phase 2 ({} s): handle the device now.".format(handle_ms // 1000))
+        print("Phase 2 ({} s): stroke, fondle, and handle the device now.".format(handle_ms // 1000))
         start = ticks_ms()
         while ticks_diff(ticks_ms(), start) < handle_ms:
             raw = await self._sensor.read_async()
