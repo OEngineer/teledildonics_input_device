@@ -1,12 +1,14 @@
 # The (as yet unnamed) Teledildonic Input Device
 ## What it is
-A phallic-shaped capacitive touch input device with nine sensors spaced along its length.  It is built around an [Unexpected Maker TinyS3](https://unexpectedmaker.com/shop.html#!/TinyS3/p/577100914) (ESP32-S3), nine 3D-printed electrode spacers threaded onto an M6 rod, and a small LiPo battery — all assembled into a body-safe enclosure printed in three pieces.
+A phallic-shaped capacitive touch input device with nine sensors spaced along its length.  It is built around an [Unexpected Maker TinyS3](https://unexpectedmaker.com/shop.html#!/TinyS3/p/577100914) (ESP32-S3), nine 3D-printed electrode spacers threaded onto an M6 rod, and a small LiPo battery — all assembled into an enclosure made of 3D-printed parts.
+
+The finished assembly must be covered with a non-conductive layer at least 1mm thick. I used adhesive-wall heat-shrink tubing for this (and will use condoms with it for insertion, as the heat-shrink tubing is not known to be body-safe). A better alternative would be to use body-safe silicone.
 
 The nine electrodes are bare loops of tinned wire wound around the outside of each spacer.  Each is connected to one of the ESP32-S3's capacitive-touch GPIO pins.  When the device is touched, gripped, or inserted, the capacitance on the covered electrodes increases and the firmware converts those changes into the metrics described below.
 ![Complete device](photos/device-1.jpeg)
 ![device bottom view](photos/device-3.jpeg)
 ## What it does
-The firmware continuously reads all nine touch electrodes and derives three summary values, each expressed as a percentage (0–100):
+The firmware continuously reads all nine touch electrodes and derives three summary values, each expressed as percentages (0-100):
 
 | Value | Meaning |
 |---|---|
