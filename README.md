@@ -97,7 +97,7 @@ Start at the base.
 
 ![board assembly](photos/device-4.jpeg)
 
-    - Add a wired JST connector for your battery if you're using one. Solder the wires under the board to the battery contacts.
+  - Add a wired JST connector for your battery if you're using one. Solder the wires under the board to the battery contacts.
 
 ![bottom cover detail](photos/device-6.jpeg)
   - Thread the `top` on, using threadlocker if you want.
