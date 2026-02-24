@@ -3,7 +3,8 @@
 A phallic-shaped capacitive touch input device with nine sensors spaced along its length.  It is built around an [Unexpected Maker TinyS3](https://unexpectedmaker.com/shop.html#!/TinyS3/p/577100914) (ESP32-S3), nine 3D-printed electrode spacers threaded onto an M6 rod, and a small LiPo battery — all assembled into a body-safe enclosure printed in three pieces.
 
 The nine electrodes are bare loops of tinned wire wound around the outside of each spacer.  Each is connected to one of the ESP32-S3's capacitive-touch GPIO pins.  When the device is touched, gripped, or inserted, the capacitance on the covered electrodes increases and the firmware converts those changes into the metrics described below.
-
+![Complete device](photos/device-1.jpeg)
+![device bottom view](photos/device-3.jpeg)
 ## What it does
 The firmware continuously reads all nine touch electrodes and derives three summary values, each expressed as a percentage (0–100):
 
@@ -82,7 +83,7 @@ Make 9 sensors:
 Start at the base.
   - Thread the M5 rod into the base. If you have threadlocker, use a dab of it here.
   - For each of the nine sensors:
-    - Slide the next `spacer` (wired with solid wire) over the threaded rod
+    - Slide the next `spacer` (wired with solid wire) over the threaded rod (it helps to glue the first one to the base).
     - Rotate it so that the four holes line up with the ones in the base and other sensors and the ends of the solid wire are positioned 90 degrees clockwise from the prior one. This will ensure that a single one of the 4 channels won't get over-filled with hookup wire.
     - Clip the binder clip onto the threaded rod just above the spacer. This will keep it in place while you're working on it. If you don't have a binder clip, you can use a piece of masking tape to stick it to the prior sensor.
     - Solder the stripped end of a piece of hookup wire to the end of the solid wire
@@ -90,6 +91,12 @@ Start at the base.
     - Strip the cut end of the hookup wire about 2-3mm.
     - Insert the hookup wire into the next GPIO pad of the TinyS3 (start at GPIO0)
     - Solder the wire onto the TinyS3 board
+
+![board assembly](photos/device-4.jpeg)
+
+    - Add a wired JST connector for your battery if you're using one. Solder the wires under the board to the battery contacts.
+
+![bottom cover detail](photos/device-6.jpeg)
   - Thread the `top` on, using threadlocker if you want.
   - If you're using heat-shrink tubing:
     - Cut a piece of tubing somewhat longer than the distance from the base to the tip. It will shrink quite a bit when heated, so be generous. You will trim the excess later.
