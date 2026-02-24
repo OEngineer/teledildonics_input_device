@@ -5,6 +5,7 @@ A phallic-shaped capacitive touch input device with nine sensors spaced along it
 The finished assembly must be covered with a non-conductive layer at least 1mm thick. I used adhesive-wall heat-shrink tubing for this (and will use condoms with it for insertion, as the heat-shrink tubing is not known to be body-safe). A better alternative would be to use body-safe silicone.
 
 The nine electrodes are bare loops of tinned wire wound around the outside of each spacer.  Each is connected to one of the ESP32-S3's capacitive-touch GPIO pins.  When the device is touched, gripped, or inserted, the capacitance on the covered electrodes increases and the firmware converts those changes into the metrics described below.
+
 ![Complete device](photos/device-1.jpeg)
 ![device bottom view](photos/device-3.jpeg)
 ## What it does
