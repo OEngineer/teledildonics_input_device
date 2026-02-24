@@ -52,7 +52,11 @@ All sensor reads use `asyncio.sleep_ms` between individual pin reads, so the loo
   - Flexible stranded hookup wire, ideally solderable and in different colors (I used 24AWG silicone wire)
   - Li-poly cell (I used a 400mAh one that fit; check space available in model or 3D print)
   - Solid tinned or silver-coated wire, 20-22 AWG. Make sure that this is solderable (much "craft wire" is enameled and so not easily soldered).
-  - Length of ~41mm diameter adhesive-wall heat-shrink tubing (optional, for holding everything together and helping make it waterproof.) Or you could just coat the whole thing with body-safe silicone.
+  - Length of 1.5" (39mm) diameter adhesive-wall 3:1 heat-shrink tubing (optional, for holding everything together and helping make it waterproof.)
+
+    [Here is the one I used](https://www.amazon.com/dp/B07SD47JM8)
+
+    Or you could just coat the whole thing with body-safe silicone.
   - Hot glue, UV resin, or other filler for the top of the heat-shrink tubing (if you're using it).
 ### Tools and supplies required
   - Soldering iron and solder
