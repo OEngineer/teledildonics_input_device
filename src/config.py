@@ -13,6 +13,10 @@ CLIENT_MAC=b'\xec\xda;\x8c\xe7\x00' # from sta.config('mac') on client device
 REFRESH_INTERVAL_MS = 100 # add about 110ms delay because of network
 THRESHOLD = 35000
 
+# Power management
+WAKEUP_PIN = 21          # RTC-capable GPIO for EXT0 deep-sleep wakeup (active-low button)
+SLEEP_TIMEOUT_MS = 30_000  # idle time before deep sleep (ms)
+
 def set_global_exception():
     def handle_exception(loop, context):
         import sys
