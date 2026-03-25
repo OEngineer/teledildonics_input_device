@@ -9,7 +9,7 @@ _COMMAND_UUID = bluetooth.UUID("522b443a-4f53-534d-1000-420badbabe69")
 SCAN_DURATION_MS = 5000
 RECONNECT_DELAY_MS = 3000
 STREAM_INTERVAL_MS = 200  # send interval and position time budget for OSSM trajectory planner
-MIN_CHANGE = 2  # minimum position change (0-100) before sending a new command
+COMMAND_TIMEOUT_MS = 1000
 
 
 class OSSMRemote:
@@ -50,6 +50,7 @@ class OSSMRemote:
         try:
             service = await self._connection.service(_SERVICE_UUID)
             self._command_char = await service.characteristic(_COMMAND_UUID)
+            await self._command_char.subscribe(notify=True)
         except Exception as e:
             print(f"BLE: service discovery failed: {e}")
             await self._connection.disconnect()
@@ -57,7 +58,7 @@ class OSSMRemote:
             return
 
         try:
-            await self._command_char.write(b"go:streaming", response=False)
+            await self._send_command("go:streaming")
         except Exception as e:
             print(f"BLE: failed to activate streaming: {e}")
             await self._connection.disconnect()
@@ -67,27 +68,33 @@ class OSSMRemote:
         self.connected = True
         print("BLE: connected, streaming mode active")
 
+    async def _send_command(self, cmd):
+        """Write a command and wait for the ok:/fail: response."""
+        await self._command_char.write(cmd.encode(), response=False)
+        response = await asyncio.wait_for_ms(self._command_char.notified(), COMMAND_TIMEOUT_MS)
+        response_str = bytes(response).decode()
+        if not response_str.startswith("ok:"):
+            raise Exception(f"command rejected: {response_str}")
+        return response_str
+
     async def _send(self, position):
-        """Write a single stream command. Caller must hold connection."""
-        cmd = f"stream:{position}:{STREAM_INTERVAL_MS}".encode()
-        await self._command_char.write(cmd, response=False)
+        """Write a single stream command and wait for acknowledgement."""
+        cmd = f"stream:{position}:{STREAM_INTERVAL_MS}"
+        await self._send_command(cmd)
 
     async def run(self, get_insertion):
         """
         Main send loop. Calls get_insertion() each iteration (returns int 0-100),
-        sends a stream command only when the value changes by >= MIN_CHANGE.
+        sends a stream command every interval.
         Returns when the connection is lost.
         """
-        last_sent = -MIN_CHANGE  # force a send on the first iteration
         while self.connected:
             position = get_insertion()
-            if abs(position - last_sent) >= MIN_CHANGE:
-                try:
-                    await self._send(position)
-                    last_sent = position
-                except Exception as e:
-                    print(f"BLE: send failed: {e}")
-                    self.connected = False
-                    break
+            try:
+                await self._send(position)
+            except Exception as e:
+                print(f"BLE: send failed: {e}")
+                self.connected = False
+                break
             await asyncio.sleep_ms(STREAM_INTERVAL_MS)
         print("BLE: disconnected")
