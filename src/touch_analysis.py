@@ -200,9 +200,11 @@ class TouchAnalyzer:
           'center'     - float [0, 1]
         """
         normalized = await self.read_normalized()
+        focus = self.focus(normalized)
+        center = 0.0 if focus == 0.0 else self.center_of_activity(normalized)
         return {
             'normalized': normalized,
             'insertion':  self.insertion(normalized),
-            'focus':      self.focus(normalized),
-            'center':     self.center_of_activity(normalized),
+            'focus':      focus,
+            'center':     center
         }
