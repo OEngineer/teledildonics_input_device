@@ -15,7 +15,7 @@ except ImportError:
     import json
 
 CALIBRATION_FILE = '/calibration.json'
-ACTIVE_THRESHOLD = 0.1   # normalized value to consider a sensor "active"
+ACTIVE_THRESHOLD = 0.2   # normalized value to consider a sensor "active"
 
 
 class TouchAnalyzer:

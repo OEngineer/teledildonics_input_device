@@ -19,9 +19,6 @@ The firmware continuously reads all nine touch electrodes and derives three summ
 
 Raw readings are normalized per-sensor using a two-phase calibration that captures each sensor's idle baseline and peak touch range.  Calibration data is stored in `/calibration.json` on the device's flash filesystem and survives reboots.
 
-What you do with those values is up to you. There is old code here that used the ESPNow protocol to communicate to an LED box for a demo.
-You will probably want to do something different.
-
 ## The firmware
 The firmware is written in MicroPython running on the TinyS3.  The relevant source files are in `src/` here, and in the root of the flash filesystem on the device:
 
@@ -29,8 +26,9 @@ The firmware is written in MicroPython running on the TinyS3.  The relevant sour
 |---|---|
 | `touch_sensor.py` | `MultiTouchSensor` — configures the nine `TouchPad` objects and provides synchronous (`read`) and async (`read_async`) raw-value reads. |
 | `touch_analysis.py` | `TouchAnalyzer` — wraps `MultiTouchSensor` with two-phase calibration, per-sensor normalization, and the `insertion`, `focus`, and `center_of_activity` metrics. |
-| `config.py` | Pin assignments, touch threshold, and shared helpers. |
-| `main.py` | Entry point: prompts for calibration if none is saved, then runs the output loop. |
+| `ble_remote.py` | `OSSMRemote` — BLE client that scans for an OSSM device, connects, and streams the `insertion` value as position commands. |
+| `config.py` | Pin assignments, touch threshold, sleep timeout, and shared helpers. |
+| `main.py` | Entry point: prompts for calibration if none is saved, then runs the touch output loop, BLE task, and idle sleep monitor concurrently. |
 
 ### Calibration
 Calibration is two-phase and interactive:
@@ -42,6 +40,36 @@ The resulting offset and scale per sensor are saved to `/calibration.json`.  Del
 
 ### Async design
 All sensor reads use `asyncio.sleep_ms` between individual pin reads, so the loop never blocks for more than ~30 ms per pin.  The main output loop runs at approximately 100 ms intervals and yields control between iterations, making it easy to integrate with other async tasks.
+
+Three async tasks run concurrently: `run_output` (touch sensing and metrics), `ble_task` (BLE streaming to an OSSM device), and `idle_monitor` (deep-sleep watchdog).
+
+### BLE output (OSSM remote)
+`ble_remote.py` implements `OSSMRemote`, a BLE central that drives an [OSSM](https://discuss.kink3d.com/t/ossm/369) sex machine using the standard OSSM BLE service (UUID `522b443a-4f53-534d-0001-420badbabe69`, compatible with OSSM Rust firmware v3.0+).
+
+On each connection cycle it:
+1. Scans for a device advertising the OSSM service UUID (5-second scan window).
+2. Connects and discovers the command characteristic.
+3. Sends `go:streaming` to activate streaming mode.
+4. Streams `stream:<position>:<interval_ms>` commands at 200 ms intervals, where `<position>` is the `insertion` value (0–100).  A command is only sent when the value changes by ≥ 2, to reduce BLE traffic.
+
+If the connection drops, `ble_task` waits 3 seconds and then retries from the scan step.
+
+#### Testing BLE without hardware
+
+`test/ossm_ble_sim.py` is a desktop Python script that acts as a fake OSSM peripheral.  It advertises the same OSSM GATT service UUID and prints every command written to the characteristic, so you can verify `ble_remote.py` behaviour without a real OSSM device.
+
+```bash
+pip install bless
+python test/ossm_ble_sim.py
+```
+
+Requires Linux (BlueZ with `bluetoothd` running) or macOS (CoreBluetooth).  `bless` >= 0.2.1.
+
+### Deep sleep
+The device enters ESP32 deep sleep after 30 seconds of no touch activity (insertion below threshold). Currently the default threshold is 20%. Activity resets the idle timer; inactivity causes `idle_monitor` to call `machine.deepsleep()`.
+
+Wakeup is via a momentary button on **GPIO 21** (an RTC-capable pin), wired active-low (shorts to GND when pressed).  The internal pull-up is held active during deep sleep (`hold=True`) so no external resistor is required.  On waking, the firmware logs the wakeup reason and resumes normally — calibration data survives deep sleep because it is stored on the flash filesystem.
+
 ## Building
 ### Parts required
   - 3D printed parts (see below)
@@ -142,3 +170,6 @@ Start at the base.
   ```
 ## Using it
 I recommend coating the device with body-safe silicone after it's working, or at least using a condom around it if you're going to be inserting it.
+
+## Power consumption
+I've measured this at about 189µA during deep-sleep, and about 67mA during power-on (while connected via BLE).
