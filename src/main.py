@@ -31,6 +31,8 @@ if not a._calibrated:
 # Shared idle-tracking state.
 _last_active_ms = ticks_ms()
 
+def recalibrate():
+    asyncio.run(a.calibrate())
 
 def _record_activity():
     global _last_active_ms

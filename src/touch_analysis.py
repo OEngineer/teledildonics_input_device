@@ -15,7 +15,7 @@ except ImportError:
     import json
 
 CALIBRATION_FILE = '/calibration.json'
-ACTIVE_THRESHOLD = 0.2   # normalized value to consider a sensor "active"
+ACTIVE_THRESHOLD = 0.1   # normalized value to consider a sensor "active"
 
 
 class TouchAnalyzer:
@@ -170,7 +170,7 @@ class TouchAnalyzer:
         """Weighted-average position of activity along the shaft.
 
         Returns a value in [0.0, 1.0] where 0.0 is the base (sensor 0) and
-        1.0 is the tip (sensor n-1).  Returns None when there is no activity.
+        1.0 is the tip (sensor n-1).  Returns 0.0 when there is no activity.
         """
         n = len(normalized)
         if n == 0:
@@ -178,7 +178,7 @@ class TouchAnalyzer:
 
         total = sum(normalized)
         if total == 0.0:
-            return None
+            return 0.0
 
         if n == 1:
             return 0.0
@@ -197,7 +197,7 @@ class TouchAnalyzer:
           'normalized' - list of per-sensor normalized values
           'insertion'  - float [0, 1]
           'focus'      - float [0, 1]
-          'center'     - float [0, 1] or None
+          'center'     - float [0, 1]
         """
         normalized = await self.read_normalized()
         return {

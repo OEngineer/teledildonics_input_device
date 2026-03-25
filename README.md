@@ -38,6 +38,13 @@ Calibration is two-phase and interactive:
 
 The resulting offset and scale per sensor are saved to `/calibration.json`.  Delete that file (or answer `y` at startup with no calibration present) to recalibrate.
 
+To re-calibrate, connect to the USB, wake the device, and enter Ctrl-C in the REPL. Then type:
+```
+>>> recalibrate()
+```
+Follow the instructions for re-calibration.
+Then enter Ctrl-D to reboot. Disconnect the cable.
+
 ### Async design
 All sensor reads use `asyncio.sleep_ms` between individual pin reads, so the loop never blocks for more than ~30 ms per pin.  The main output loop runs at approximately 100 ms intervals and yields control between iterations, making it easy to integrate with other async tasks.
 
