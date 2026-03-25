@@ -13,10 +13,16 @@ COMMAND_TIMEOUT_MS = 1000
 
 
 class OSSMRemote:
-    def __init__(self):
+    def __init__(self, settings=None):
+        """
+        settings: dict of initial OSSM parameters, e.g.
+            {"speed": 50, "depth": 100, "stroke": 80}
+        Each key maps to a "set:<key>:<value>" command sent before "go:streaming".
+        """
         self.connected = False
         self._connection = None
         self._command_char = None
+        self._settings = settings or {}
 
     async def find(self):
         """Scan for an OSSM device advertising the standard service UUID."""
@@ -56,6 +62,16 @@ class OSSMRemote:
             await self._connection.disconnect()
             self._connection = None
             return
+
+        for key, value in self._settings.items():
+            try:
+                await self._send_command(f"set:{key}:{value}")
+                print(f"BLE: set {key}={value}")
+            except Exception as e:
+                print(f"BLE: failed to set {key}: {e}")
+                await self._connection.disconnect()
+                self._connection = None
+                return
 
         try:
             await self._send_command("go:streaming")

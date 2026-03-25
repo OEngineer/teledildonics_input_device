@@ -13,6 +13,11 @@ CLIENT_MAC=b'\xec\xda;\x8c\xe7\x00' # from sta.config('mac') on client device
 REFRESH_INTERVAL_MS = 100 # add about 110ms delay because of network
 THRESHOLD = 35000
 
+# BLE initial settings sent to OSSM before streaming (0-100, None to skip)
+BLE_SPEED = 50
+BLE_DEPTH = 100
+BLE_STROKE = 80
+
 # Power management
 WAKEUP_PIN = 21          # RTC-capable GPIO for EXT0 deep-sleep wakeup (active-low button)
 SLEEP_TIMEOUT_MS = 30_000  # idle time before deep sleep (ms)

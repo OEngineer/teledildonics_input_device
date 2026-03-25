@@ -2,7 +2,7 @@ import asyncio, machine, esp32
 from machine import Pin
 from time import ticks_ms, ticks_diff
 import touch_sensor, touch_analysis
-from config import WAKEUP_PIN, SLEEP_TIMEOUT_MS
+from config import WAKEUP_PIN, SLEEP_TIMEOUT_MS, BLE_SPEED, BLE_DEPTH, BLE_STROKE
 from touch_analysis import ACTIVE_THRESHOLD
 from ble_remote import OSSMRemote, RECONNECT_DELAY_MS
 
@@ -68,7 +68,7 @@ async def run_output():
 
 
 async def ble_task():
-    remote = OSSMRemote()
+    remote = OSSMRemote({"speed": BLE_SPEED, "depth": BLE_DEPTH, "stroke": BLE_STROKE})
     while True:
         await remote.connect()
         if remote.connected:

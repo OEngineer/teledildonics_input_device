@@ -14,8 +14,8 @@ The firmware continuously reads all nine touch electrodes and derives three summ
 | Value | Meaning |
 |---|---|
 | **insertion** | How many sensors are engaged, and how strongly. Rises toward 100 as more of the shaft is covered or pressure increases. |
-| **focus** | How concentrated the activity is. High (near 100) when only one or two sensors are active; zero when all sensors are equally active. |
-| **center** | Weighted-average position of touch activity along the shaft: 0 = base, 100 = tip. |
+| **focus** | How concentrated the activity is. High (near 100) when only one or two sensors are active; zero when all sensors are equally active or when there is no activity. |
+| **center** | Weighted-average position of touch activity along the shaft: 0 = base, 100 = tip. Returns 0 when focus is 0 (no activity or uniform activity). |
 
 Raw readings are normalized per-sensor using a two-phase calibration that captures each sensor's idle baseline and peak touch range.  Calibration data is stored in `/calibration.json` on the device's flash filesystem and survives reboots.
 
@@ -26,8 +26,8 @@ The firmware is written in MicroPython running on the TinyS3.  The relevant sour
 |---|---|
 | `touch_sensor.py` | `MultiTouchSensor` — configures the nine `TouchPad` objects and provides synchronous (`read`) and async (`read_async`) raw-value reads. |
 | `touch_analysis.py` | `TouchAnalyzer` — wraps `MultiTouchSensor` with two-phase calibration, per-sensor normalization, and the `insertion`, `focus`, and `center_of_activity` metrics. |
-| `ble_remote.py` | `OSSMRemote` — BLE client that scans for an OSSM device, connects, and streams the `insertion` value as position commands. |
-| `config.py` | Pin assignments, touch threshold, sleep timeout, and shared helpers. |
+| `ble_remote.py` | `OSSMRemote` — BLE client that scans for an OSSM device, connects, sends initial settings, and streams the `insertion` value as position commands. |
+| `config.py` | Pin assignments, touch threshold, sleep timeout, BLE initial settings, and shared helpers. |
 | `main.py` | Entry point: prompts for calibration if none is saved, then runs the touch output loop, BLE task, and idle sleep monitor concurrently. |
 
 ### Calibration
@@ -55,9 +55,12 @@ Three async tasks run concurrently: `run_output` (touch sensing and metrics), `b
 
 On each connection cycle it:
 1. Scans for a device advertising the OSSM service UUID (5-second scan window).
-2. Connects and discovers the command characteristic.
-3. Sends `go:streaming` to activate streaming mode.
-4. Streams `stream:<position>:<interval_ms>` commands at 200 ms intervals, where `<position>` is the `insertion` value (0–100).  A command is only sent when the value changes by ≥ 2, to reduce BLE traffic.
+2. Connects and discovers the command characteristic (subscribing to notifications for acknowledgements).
+3. Sends any initial settings as `set:<key>:<value>` commands (default: `speed=50`, `depth=100`, `stroke=80`).
+4. Sends `go:streaming` to activate streaming mode.
+5. Streams `stream:<position>:<interval_ms>` commands at 200 ms intervals, where `<position>` is the `insertion` value (0–100).
+
+Each command (including `set:` and `go:streaming`) waits for an `ok:` acknowledgement from the OSSM before proceeding; a `fail:` response or timeout raises an error and triggers reconnection.
 
 If the connection drops, `ble_task` waits 3 seconds and then retries from the scan step.
 
