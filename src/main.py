@@ -7,7 +7,8 @@ from touch_analysis import ACTIVE_THRESHOLD
 from ble_remote import OSSMRemote, RECONNECT_DELAY_MS
 
 # IO21: RTC pin, internal pull-up; button shorts to GND to wake from deep sleep.
-_wakeup_pin = Pin(WAKEUP_PIN, Pin.IN, Pin.PULL_UP)
+# hold=True ensures that pull-up is maintained in deep-sleep.
+_wakeup_pin = Pin(WAKEUP_PIN, Pin.IN, Pin.PULL_UP, hold=True)
 
 # Log wakeup reason once on boot.
 _reset_cause = machine.reset_cause()
