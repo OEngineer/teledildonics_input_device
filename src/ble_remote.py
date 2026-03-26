@@ -62,7 +62,7 @@ class OSSMRemote:
 
         for key, value in self._settings.items():
             try:
-                await self._send_command(f"set:{key}:{value}")
+                await self._send_command(f"set:{key}:{value}", response=True)
                 print(f"BLE: set {key}={value}")
             except Exception as e:
                 print(f"BLE: failed to set {key}: {e}")
@@ -71,7 +71,7 @@ class OSSMRemote:
                 return
 
         try:
-            await self._send_command("go:streaming")
+            await self._send_command("go:streaming", response=True)
         except Exception as e:
             print(f"BLE: failed to activate streaming: {e}")
             await self._connection.disconnect()
@@ -81,9 +81,9 @@ class OSSMRemote:
         self.connected = True
         print("BLE: connected, streaming mode active")
 
-    async def _send_command(self, cmd):
-        """Write a command to the OSSM command characteristic (no ACK)."""
-        await self._command_char.write(cmd.encode(), response=False)
+    async def _send_command(self, cmd, response=False):
+        """Write a command to the OSSM command characteristic."""
+        await self._command_char.write(cmd.encode(), response=response)
 
     async def _send(self, position):
         """Write a single stream command."""
