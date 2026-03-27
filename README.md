@@ -6,6 +6,8 @@ The finished assembly must be covered with a non-conductive layer at least 1mm t
 
 The nine electrodes are bare loops of tinned wire wound around the outside of each spacer.  Each is connected to one of the ESP32-S3's capacitive-touch GPIO pins.  When the device is touched, gripped, or inserted, the capacitance on the covered electrodes increases and the firmware converts those changes into the metrics described below.
 
+A pushbutton mounted on the side of the base wakes the device from deep-sleep.
+
 ![Complete device](photos/device-1.jpeg)
 ![device bottom view](photos/device-3.jpeg)
 ## What it does
@@ -26,8 +28,9 @@ The firmware is written in MicroPython running on the TinyS3.  The relevant sour
 |---|---|
 | `touch_sensor.py` | `MultiTouchSensor` — configures the nine `TouchPad` objects and provides synchronous (`read`) and async (`read_async`) raw-value reads. |
 | `touch_analysis.py` | `TouchAnalyzer` — wraps `MultiTouchSensor` with two-phase calibration, per-sensor normalization, and the `insertion`, `focus`, and `center_of_activity` metrics. |
-| `ble_remote.py` | `OSSMRemote` — BLE client that scans for an OSSM device, connects, sends initial settings, and streams the `insertion` value as position commands. |
-| `config.py` | Pin assignments, touch threshold, sleep timeout, BLE initial settings, and shared helpers. |
+| `stroke_detector.py` | `StrokeDetector` — detects stroke peaks and troughs in the insertion signal using EMA smoothing and direction-reversal logic; drives event-based OSSM position commands. |
+| `ble_remote.py` | `OSSMRemote` — BLE client that scans for an OSSM device, connects, sends initial settings, and streams position commands at detected stroke extrema. |
+| `config.py` | Pin assignments, touch threshold, sleep timeout, BLE initial settings, stroke detector tuning, and shared helpers. |
 | `main.py` | Entry point: prompts for calibration if none is saved, then runs the touch output loop, BLE task, and idle sleep monitor concurrently. |
 
 ### Calibration
@@ -55,14 +58,23 @@ Three async tasks run concurrently: `run_output` (touch sensing and metrics), `b
 
 On each connection cycle it:
 1. Scans for a device advertising the OSSM service UUID (5-second scan window).
-2. Connects and discovers the command characteristic (subscribing to notifications for acknowledgements).
-3. Sends any initial settings as `set:<key>:<value>` commands (default: `speed=50`, `depth=100`, `stroke=80`).
+2. Connects and discovers the command characteristic.
+3. Sends any initial settings as `set:<key>:<value>` commands (default: `speed=0`, `depth=0`, `stroke=100`).
 4. Sends `go:streaming` to activate streaming mode.
-5. Streams `stream:<position>:<interval_ms>` commands at 200 ms intervals, where `<position>` is the `insertion` value (0–100).
+5. Streams `stream:<position>:<interval_ms>` commands — but only at detected stroke peaks, troughs, and sustained-stillness events, using `StrokeDetector` to determine when and what to send.
 
-Each command (including `set:` and `go:streaming`) waits for an `ok:` acknowledgement from the OSSM before proceeding; a `fail:` response or timeout raises an error and triggers reconnection.
+The `interval_ms` in each stream command is derived from the elapsed time since the last emit (clamped to `STROKE_MIN_MOVE_MS`–2000 ms), so OSSM moves at the same speed as the input device.  The first command after connect uses `STROKE_INITIAL_MOVE_MS` (2000 ms) for a gentle start.
 
 If the connection drops, `ble_task` waits 3 seconds and then retries from the scan step.
+
+#### Stroke detection
+
+`stroke_detector.py` implements `StrokeDetector`, which converts the continuous `insertion` signal (0–100) into discrete events at stroke extrema (peaks and troughs) and sustained-stillness points.  It applies EMA smoothing (`STROKE_EMA_ALPHA`), then emits whenever:
+
+- the smoothed position reverses direction by at least `STROKE_MIN_AMPLITUDE` units (direction-change extremum), or
+- the position stays within `STROKE_STOPPED_THRESHOLD` units for `STROKE_STOPPED_WINDOW` consecutive samples (stillness event).
+
+This event-driven approach lets OSSM match the actual stroke rhythm rather than streaming at a fixed rate.
 
 #### Testing BLE without hardware
 
@@ -87,6 +99,7 @@ Wakeup is via a momentary button on **GPIO 21** (an RTC-capable pin), wired acti
   - 2x M6 threaded inserts
   - 2x 1.5mm x 6mm long plastic screws
   - Unexpected Maker TinyS3
+  - Pushbutton with 7mm mounting hole
   - Flexible stranded hookup wire, ideally solderable and in different colors (I used 24AWG silicone wire)
   - Li-poly cell (I used a 400mAh one that fit; check space available in model or 3D print)
   - Solid tinned or silver-coated wire, 20-22 AWG. Make sure that this is solderable (much "craft wire" is enameled and so not easily soldered).
@@ -140,8 +153,10 @@ Start at the base.
 ![board assembly](photos/device-4.jpeg)
 
   - Add a wired JST connector for your battery if you're using one. Solder the wires under the board to the battery contacts.
+  - Solder two wires to the pushbutton, then mount it in the hole.
+  - Connect the pushbutton wires to GND and GPIO21 (see src/config.py)
 
-![bottom cover detail](photos/device-6.jpeg)
+![bottom cover detail](photos/device-7.jpeg)
   - Thread the `top` on, using threadlocker if you want.
   - If you're using heat-shrink tubing:
     - Cut a piece of tubing somewhat longer than the distance from the base to the tip. It will shrink quite a bit when heated, so be generous. You will trim the excess later.

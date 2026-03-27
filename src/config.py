@@ -1,22 +1,10 @@
 import asyncio
 from machine import Pin
 
-STA_CHANNEL=9 # avoid channels < 9 on ESP32-S3
-TXPOWER=17
-
-# client only:
-LED_PIN = 5
-MAX_VAL = 30000
-
-# server only:
-CLIENT_MAC=b'\xec\xda;\x8c\xe7\x00' # from sta.config('mac') on client device
-REFRESH_INTERVAL_MS = 100 # add about 110ms delay because of network
-THRESHOLD = 35000
-
 # BLE initial settings sent to OSSM before streaming (0-100, None to skip)
-BLE_SPEED = 50
-BLE_DEPTH = 100
-BLE_STROKE = 80
+BLE_SPEED = 0
+BLE_DEPTH = 0
+BLE_STROKE = 100     # Scale 1:1 for 160mm typical OSSM stroke length
 
 # Power management
 WAKEUP_PIN = 21          # RTC-capable GPIO for EXT0 deep-sleep wakeup (active-low button)
