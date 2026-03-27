@@ -1,6 +1,13 @@
 import asyncio
 import bluetooth
 import aioble
+from time import ticks_ms, ticks_diff
+from stroke_detector import StrokeDetector
+from config import (
+    STROKE_EMA_ALPHA, STROKE_MIN_AMPLITUDE,
+    STROKE_STOPPED_WINDOW, STROKE_STOPPED_THRESHOLD,
+    STROKE_POLL_MS, STROKE_MIN_MOVE_MS, STROKE_INITIAL_MOVE_MS,
+)
 
 # Standard OSSM BLE service (ossm/ Rust firmware v3.0+)
 _SERVICE_UUID = bluetooth.UUID("522b443a-4f53-534d-0001-420badbabe69")
@@ -8,7 +15,6 @@ _COMMAND_UUID = bluetooth.UUID("522b443a-4f53-534d-1000-420badbabe69")
 
 SCAN_DURATION_MS = 5000
 RECONNECT_DELAY_MS = 3000
-STREAM_INTERVAL_MS = 200  # send interval and position time budget for OSSM trajectory planner
 
 class OSSMRemote:
     def __init__(self, settings=None):
@@ -85,24 +91,42 @@ class OSSMRemote:
         """Write a command to the OSSM command characteristic."""
         await self._command_char.write(cmd.encode(), response=response)
 
-    async def _send(self, position):
+    async def _send(self, position, interval_ms):
         """Write a single stream command."""
-        cmd = f"stream:{position}:{STREAM_INTERVAL_MS}"
+        cmd = f"stream:{position}:{interval_ms}"
         await self._send_command(cmd)
 
     async def run(self, get_insertion):
         """
-        Main send loop. Calls get_insertion() each iteration (returns int 0-100),
-        sends a stream command every interval.
-        Returns when the connection is lost.
+        Main send loop.  Calls get_insertion() each poll (returns int 0-100).
+        Emits stream commands only at stroke peaks/troughs and after sustained
+        stillness.  Returns when the connection is lost.
         """
+        detector = StrokeDetector(
+            STROKE_EMA_ALPHA, STROKE_MIN_AMPLITUDE,
+            STROKE_STOPPED_WINDOW, STROKE_STOPPED_THRESHOLD,
+        )
+        last_emit_ms = ticks_ms()
+        first = True
+
         while self.connected:
-            position = get_insertion()
-            try:
-                await self._send(position)
-            except Exception as e:
-                print(f"BLE: send failed: {e}")
-                self.connected = False
-                break
-            await asyncio.sleep_ms(STREAM_INTERVAL_MS)
+            raw = get_insertion()
+            emit, pos = detector.update(raw)
+            if emit:
+                now = ticks_ms()
+                if first:
+                    interval_ms = STROKE_INITIAL_MOVE_MS
+                    first = False
+                else:
+                    elapsed = ticks_diff(now, last_emit_ms)
+                    interval_ms = max(STROKE_MIN_MOVE_MS, min(elapsed, 2000))
+                last_emit_ms = now
+                try:
+                    await self._send(pos, interval_ms)
+                    print(f"BLE: stream {pos} interval={interval_ms}")
+                except Exception as e:
+                    print(f"BLE: send failed: {e}")
+                    self.connected = False
+                    break
+            await asyncio.sleep_ms(STROKE_POLL_MS)
         print("BLE: disconnected")
