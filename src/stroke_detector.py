@@ -24,6 +24,7 @@ class StrokeDetector:
         self._last_extreme = None
         self._stable_count = 0
         self._last_emit = None
+        self._stopped_armed = True
 
     def reset(self):
         """Clear all state (call when reconnecting)."""
@@ -33,6 +34,7 @@ class StrokeDetector:
         self._last_extreme = None
         self._stable_count = 0
         self._last_emit = None
+        self._stopped_armed = True
 
     def update(self, raw):
         """
@@ -72,14 +74,20 @@ class StrokeDetector:
         if new_dir != 0:
             self._direction = new_dir
 
-        # Stopped: hasn't moved beyond threshold from last emit for stopped_window samples
-        if abs(self._smoothed - self._last_emit) <= self.stopped_threshold:
+        # Stopped: position hasn't moved beyond threshold sample-to-sample for stopped_window samples.
+        # Re-arms only after a stopped emit, once position moves meaningfully.
+        if abs(delta) > self.stopped_threshold:
+            self._stable_count = 0
+        elif self._stopped_armed:
             self._stable_count += 1
             if self._stable_count >= self.stopped_window:
                 emit = True
                 self._stable_count = 0
-        else:
-            self._stable_count = 0
+                self._stopped_armed = False
+
+        # Re-arm stopped detection once position moves far enough from where we last stopped.
+        if not self._stopped_armed and abs(self._smoothed - self._last_emit) > self.min_amplitude:
+            self._stopped_armed = True
 
         if emit:
             self._last_emit = self._smoothed

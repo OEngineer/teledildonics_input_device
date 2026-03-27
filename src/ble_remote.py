@@ -1,20 +1,18 @@
 import asyncio
 import bluetooth
 import aioble
-from time import ticks_ms, ticks_diff
-from stroke_detector import StrokeDetector
-from config import (
-    STROKE_EMA_ALPHA, STROKE_MIN_AMPLITUDE,
-    STROKE_STOPPED_WINDOW, STROKE_STOPPED_THRESHOLD,
-    STROKE_POLL_MS, STROKE_MIN_MOVE_MS, STROKE_INITIAL_MOVE_MS,
-)
+import ujson
+from time import ticks_ms, ticks_diff, ticks_add
+from config import STROKE_MOTION_MARGIN_MS
 
-# Standard OSSM BLE service (ossm/ Rust firmware v3.0+)
+# Standard OSSM BLE service
 _SERVICE_UUID = bluetooth.UUID("522b443a-4f53-534d-0001-420badbabe69")
 _COMMAND_UUID = bluetooth.UUID("522b443a-4f53-534d-1000-420badbabe69")
+_STATE_UUID   = bluetooth.UUID("522b443a-4f53-534d-2000-420badbabe69")
 
 SCAN_DURATION_MS = 5000
 RECONNECT_DELAY_MS = 3000
+HOMING_TIMEOUT_MS = 30000
 
 class OSSMRemote:
     def __init__(self, settings=None):
@@ -26,6 +24,7 @@ class OSSMRemote:
         self.connected = False
         self._connection = None
         self._command_char = None
+        self._state_char = None
         self._settings = settings or {}
 
     async def find(self):
@@ -45,6 +44,7 @@ class OSSMRemote:
         self.connected = False
         self._connection = None
         self._command_char = None
+        self._state_char = None
 
         device = await self.find()
         if device is None:
@@ -58,8 +58,15 @@ class OSSMRemote:
             return
 
         try:
+            mtu = await self._connection.exchange_mtu(512)
+            print(f"BLE: MTU={mtu}")
+        except Exception as e:
+            print(f"BLE: MTU exchange failed: {e}")
+
+        try:
             service = await self._connection.service(_SERVICE_UUID)
             self._command_char = await service.characteristic(_COMMAND_UUID)
+            self._state_char = await service.characteristic(_STATE_UUID)
         except Exception as e:
             print(f"BLE: service discovery failed: {e}")
             await self._connection.disconnect()
@@ -84,8 +91,45 @@ class OSSMRemote:
             self._connection = None
             return
 
+        if not await self._wait_for_streaming():
+            await self._connection.disconnect()
+            self._connection = None
+            return
+
         self.connected = True
         print("BLE: connected, streaming mode active")
+
+    async def _wait_for_streaming(self):
+        """Subscribe to state notifications; block until OSSM reaches streaming state."""
+        try:
+            await self._state_char.subscribe(notify=True)
+        except Exception as e:
+            print(f"BLE: state subscribe failed: {e}")
+            return False
+
+        deadline = ticks_add(ticks_ms(), HOMING_TIMEOUT_MS)
+        while True:
+            remaining = ticks_diff(deadline, ticks_ms())
+            if remaining <= 0:
+                break
+            try:
+                data = await self._state_char.notified(timeout_ms=remaining)
+            except asyncio.TimeoutError:
+                break
+            except Exception as e:
+                print(f"BLE: state notify error: {e}")
+                return False
+            print(f"BLE: state notify ({len(data)}b): {data}")
+            try:
+                state = ujson.loads(data).get("state", "")
+                print(f"BLE: OSSM state: {state}")
+                if "streaming" in state or "idle" in state:
+                    return True
+            except Exception as e:
+                print(f"BLE: JSON parse error: {e}")
+
+        print("BLE: timed out waiting for streaming state")
+        return False
 
     async def _send_command(self, cmd, response=False):
         """Write a command to the OSSM command characteristic."""
@@ -96,37 +140,21 @@ class OSSMRemote:
         cmd = f"stream:{position}:{interval_ms}"
         await self._send_command(cmd)
 
-    async def run(self, get_insertion):
+    async def run(self, queue):
         """
-        Main send loop.  Calls get_insertion() each poll (returns int 0-100).
-        Emits stream commands only at stroke peaks/troughs and after sustained
-        stillness.  Returns when the connection is lost.
+        Main send loop.  Dequeues (position, interval_ms) tuples produced by
+        stroke_task and writes them to the OSSM.  Waits interval_ms +
+        STROKE_MOTION_MARGIN_MS after each send so the previous move completes
+        before the next command is consumed.  Returns when the connection is lost.
         """
-        detector = StrokeDetector(
-            STROKE_EMA_ALPHA, STROKE_MIN_AMPLITUDE,
-            STROKE_STOPPED_WINDOW, STROKE_STOPPED_THRESHOLD,
-        )
-        last_emit_ms = ticks_ms()
-        first = True
-
         while self.connected:
-            raw = get_insertion()
-            emit, pos = detector.update(raw)
-            if emit:
-                now = ticks_ms()
-                if first:
-                    interval_ms = STROKE_INITIAL_MOVE_MS
-                    first = False
-                else:
-                    elapsed = ticks_diff(now, last_emit_ms)
-                    interval_ms = max(STROKE_MIN_MOVE_MS, min(elapsed, 2000))
-                last_emit_ms = now
-                try:
-                    await self._send(pos, interval_ms)
-                    print(f"BLE: stream {pos} interval={interval_ms}")
-                except Exception as e:
-                    print(f"BLE: send failed: {e}")
-                    self.connected = False
-                    break
-            await asyncio.sleep_ms(STROKE_POLL_MS)
+            pos, interval_ms = await queue.get()
+            try:
+                await self._send(pos, interval_ms)
+                print(f"BLE: stream {pos} interval={interval_ms}")
+            except Exception as e:
+                print(f"BLE: send failed: {e}")
+                self.connected = False
+                break
+            await asyncio.sleep_ms(interval_ms + STROKE_MOTION_MARGIN_MS)
         print("BLE: disconnected")

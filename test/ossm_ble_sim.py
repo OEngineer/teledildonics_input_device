@@ -22,7 +22,15 @@ import uuid
 
 from bless import BlessServer, GATTCharacteristicProperties, GATTAttributePermissions
 
-logging.basicConfig(level=logging.INFO)
+class _MsecFormatter(logging.Formatter):
+    _start = time.monotonic()
+    def format(self, record):
+        ms = int((time.monotonic() - self._start) * 1000)
+        return f"{ms:>8}ms {record.levelname} {record.getMessage()}"
+
+_handler = logging.StreamHandler()
+_handler.setFormatter(_MsecFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[_handler])
 logger = logging.getLogger(__name__)
 
 # ── Service & characteristic UUIDs (must match nimble.h) ──────────────────────
@@ -100,7 +108,7 @@ def _push_state():
 def _handle_command(cmd: str):
     """Parse an OSSM command string and update simulated state."""
     global _state
-    print(f"[OSSM] received: {cmd!r}")
+    logger.info(f"received: {cmd!r}")
 
     if cmd.startswith("go:"):
         mode = cmd[3:]
@@ -162,12 +170,16 @@ async def _handle_async(cmd: str):
 
 
 async def watch_connections():
-    """Detect disconnection by write silence (>3 s)."""
+    """Detect disconnection by write silence (>10 s).
+
+    The threshold must exceed interval_ms (up to 2000 ms) plus the device's
+    post-send sleep plus however long the queue is empty between strokes.
+    """
     global _last_write, _central_active
     while True:
         await asyncio.sleep(0.25)
         if _central_active and _last_write is not None:
-            if time.monotonic() - _last_write > 3.0:
+            if time.monotonic() - _last_write > 10.0:
                 _central_active = False
                 _last_write = None
                 logger.info("Central disconnected")

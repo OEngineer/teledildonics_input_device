@@ -2,8 +2,8 @@ import asyncio
 from machine import Pin
 
 # BLE initial settings sent to OSSM before streaming (0-100, None to skip)
-BLE_SPEED = 0
-BLE_DEPTH = 0
+BLE_SPEED = 100
+BLE_DEPTH = 100 
 BLE_STROKE = 100     # Scale 1:1 for 160mm typical OSSM stroke length
 
 # Power management
@@ -18,6 +18,7 @@ STROKE_STOPPED_THRESHOLD = 2     # position units (0-100) defining "not moving"
 STROKE_POLL_MS           = 100   # detector poll interval; matches sensor update rate
 STROKE_MIN_MOVE_MS       = 300   # floor for stream interval_ms sent to OSSM
 STROKE_INITIAL_MOVE_MS   = 2000  # interval_ms for the first emit after connect (gentle start)
+STROKE_MOTION_MARGIN_MS  = 50    # extra wait after interval_ms before consuming next queue item
 
 def set_global_exception():
     def handle_exception(loop, context):

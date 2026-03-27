@@ -32,6 +32,7 @@ The firmware is written in MicroPython running on the TinyS3.  The relevant sour
 | `ble_remote.py` | `OSSMRemote` — BLE client that scans for an OSSM device, connects, sends initial settings, and streams position commands at detected stroke extrema. |
 | `config.py` | Pin assignments, touch threshold, sleep timeout, BLE initial settings, stroke detector tuning, and shared helpers. |
 | `main.py` | Entry point: prompts for calibration if none is saved, then runs the touch output loop, BLE task, and idle sleep monitor concurrently. |
+| `queue.py` | Peter Hinch's asyncio Queue |
 
 ### Calibration
 Calibration is two-phase and interactive:
