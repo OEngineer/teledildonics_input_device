@@ -7,6 +7,7 @@ from config import (
     STROKE_EMA_ALPHA, STROKE_MIN_AMPLITUDE,
     STROKE_STOPPED_WINDOW, STROKE_STOPPED_THRESHOLD,
     STROKE_POLL_MS, STROKE_MIN_MOVE_MS, STROKE_INITIAL_MOVE_MS,
+    STROKE_LOG,
 )
 from touch_analysis import ACTIVE_THRESHOLD
 from ble_remote import OSSMRemote, RECONNECT_DELAY_MS
@@ -86,9 +87,12 @@ async def stroke_task():
     last_emit_ms = ticks_ms()
     prev_elapsed = None
 
+    t0 = ticks_ms()
     while True:
         raw = int(_last_analyzed.get("insertion", 0) * 100)
         emit, pos = detector.update(raw)
+        if STROKE_LOG:
+            print(f"S,{ticks_diff(ticks_ms(), t0)},{raw},{detector.smoothed:.2f},{1 if emit else 0}")
         if emit:
             now = ticks_ms()
             elapsed = ticks_diff(now, last_emit_ms)

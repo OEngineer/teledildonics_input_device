@@ -19,6 +19,7 @@ STROKE_POLL_MS           = 100   # detector poll interval; matches sensor update
 STROKE_MIN_MOVE_MS       = 300   # floor for stream interval_ms sent to OSSM
 STROKE_INITIAL_MOVE_MS   = 2000  # interval_ms for the first emit after connect (gentle start)
 STROKE_MOTION_MARGIN_MS  = 50    # extra wait after interval_ms before consuming next queue item
+STROKE_LOG               = False # print CSV lines for plotting (t_ms,raw,ema,emit)
 
 def set_global_exception():
     def handle_exception(loop, context):

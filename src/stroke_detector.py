@@ -93,3 +93,7 @@ class StrokeDetector:
             self._last_emit = self._smoothed
 
         return emit, round(self._smoothed)
+
+    @property
+    def smoothed(self):
+        return self._smoothed if self._smoothed is not None else 0.0
