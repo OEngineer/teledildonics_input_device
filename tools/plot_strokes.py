@@ -23,11 +23,11 @@ import re
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
-LINE_RE = re.compile(r"^S,(\d+),(\d+),([\d.]+),([01])$")
+LINE_RE = re.compile(r"^S,(\d+),(\d+),([\d.]+),(-?\d+)$")
 
 
 def parse(source):
-    t, raw, ema, emits = [], [], [], []
+    t, raw, ema, emit_pos = [], [], [], []
     for line in source:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -38,18 +38,18 @@ def parse(source):
         t.append(int(m.group(1)))
         raw.append(int(m.group(2)))
         ema.append(float(m.group(3)))
-        emits.append(int(m.group(4)))
-    return t, raw, ema, emits
+        emit_pos.append(int(m.group(4)))
+    return t, raw, ema, emit_pos
 
 
-def plot(t, raw, ema, emits, title="Stroke detector"):
+def plot(t, raw, ema, emit_pos, title="Stroke detector"):
     if not t:
         print("No S,... lines found in input.", file=sys.stderr)
         sys.exit(1)
 
     t_s = [x / 1000.0 for x in t]
-    emit_t = [t_s[i] for i, e in enumerate(emits) if e]
-    emit_y = [ema[i]  for i, e in enumerate(emits) if e]
+    emit_t = [t_s[i] for i, p in enumerate(emit_pos) if p >= 0]
+    emit_y = [emit_pos[i] for i, p in enumerate(emit_pos) if p >= 0]
 
     fig, ax = plt.subplots(figsize=(14, 5))
     ax.plot(t_s, raw, color="steelblue", alpha=0.45, linewidth=1, label="raw insertion")

@@ -6,7 +6,7 @@ from config import (
     WAKEUP_PIN, SLEEP_TIMEOUT_MS, BLE_SPEED, BLE_DEPTH, BLE_STROKE,
     STROKE_EMA_ALPHA, STROKE_MIN_AMPLITUDE,
     STROKE_STOPPED_WINDOW, STROKE_STOPPED_THRESHOLD,
-    STROKE_POLL_MS, STROKE_MIN_MOVE_MS, STROKE_INITIAL_MOVE_MS,
+    STROKE_PEAK_HISTORY, STROKE_POLL_MS, STROKE_MIN_MOVE_MS, STROKE_INITIAL_MOVE_MS,
     STROKE_LOG,
 )
 from touch_analysis import ACTIVE_THRESHOLD
@@ -83,6 +83,7 @@ async def stroke_task():
     detector = StrokeDetector(
         STROKE_EMA_ALPHA, STROKE_MIN_AMPLITUDE,
         STROKE_STOPPED_WINDOW, STROKE_STOPPED_THRESHOLD,
+        STROKE_PEAK_HISTORY,
     )
     last_emit_ms = ticks_ms()
     prev_elapsed = None
@@ -92,7 +93,7 @@ async def stroke_task():
         raw = int(_last_analyzed.get("insertion", 0) * 100)
         emit, pos = detector.update(raw)
         if STROKE_LOG:
-            print(f"S,{ticks_diff(ticks_ms(), t0)},{raw},{detector.smoothed:.2f},{1 if emit else 0}")
+            print(f"S,{ticks_diff(ticks_ms(), t0)},{raw},{detector.smoothed:.2f},{pos if emit else -1}")
         if emit:
             now = ticks_ms()
             elapsed = ticks_diff(now, last_emit_ms)

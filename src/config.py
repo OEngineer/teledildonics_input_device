@@ -13,8 +13,9 @@ SLEEP_TIMEOUT_MS = 30_000  # idle time before deep sleep (ms)
 # Stroke detection (see stroke_detector.py)
 STROKE_EMA_ALPHA         = 0.25  # smoothing factor (lower = smoother, more lag)
 STROKE_MIN_AMPLITUDE     = 8     # min 0-100 change from last extremum to count as a stroke
-STROKE_STOPPED_WINDOW    = 5     # consecutive STROKE_POLL_MS samples within threshold → stopped
+STROKE_STOPPED_WINDOW    = 5     # consecutive STROKE_POLL_MS samples within threshold -> stopped
 STROKE_STOPPED_THRESHOLD = 2     # position units (0-100) defining "not moving"
+STROKE_PEAK_HISTORY      = 10    # samples of EMA history to search for true peak/trough
 STROKE_POLL_MS           = 100   # detector poll interval; matches sensor update rate
 STROKE_MIN_MOVE_MS       = 300   # floor for stream interval_ms sent to OSSM
 STROKE_INITIAL_MOVE_MS   = 2000  # interval_ms for the first emit after connect (gentle start)

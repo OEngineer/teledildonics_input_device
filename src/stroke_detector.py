@@ -2,17 +2,21 @@ class StrokeDetector:
     """
     Detects stroke extrema (peaks and troughs) in a 0-100 insertion signal.
 
-    Applies EMA smoothing, then emits on direction reversal (with minimum amplitude
-    guard) and on sustained stillness.  Call update() at a fixed rate; it returns
-    (emit, smoothed_pos_int) on every sample.
+    Uses EMA smoothing only for direction detection.  Tracks the raw
+    peak/trough seen during each direction run and emits that value (not the
+    lagging EMA) when a reversal with sufficient amplitude is confirmed.
+    Also emits on sustained stillness.  Call update() at a fixed rate;
+    returns (emit, pos_int) on every sample.
     """
 
-    def __init__(self, ema_alpha, min_amplitude, stopped_window, stopped_threshold):
+    def __init__(self, ema_alpha, min_amplitude, stopped_window, stopped_threshold,
+                 history_len=10):
         """
         ema_alpha         - EMA weight for new samples (0 < alpha < 1; lower = smoother)
         min_amplitude     - minimum change (0-100 units) from last extremum to emit
-        stopped_window    - consecutive samples within stopped_threshold before emitting
+        stopped_window    - consecutive STROKE_POLL_MS samples within threshold -> stopped
         stopped_threshold - position units defining "not moving"
+        history_len       - unused; kept for API compatibility
         """
         self.ema_alpha = ema_alpha
         self.min_amplitude = min_amplitude
@@ -21,7 +25,8 @@ class StrokeDetector:
         self._smoothed = None
         self._prev = None
         self._direction = 0   # 0=unknown, 1=rising, -1=falling
-        self._last_extreme = None
+        self._raw_extreme = None  # best raw value seen in current direction run
+        self._last_extreme = None # raw value of the last emitted extremum
         self._stable_count = 0
         self._last_emit = None
         self._stopped_armed = True
@@ -31,6 +36,7 @@ class StrokeDetector:
         self._smoothed = None
         self._prev = None
         self._direction = 0
+        self._raw_extreme = None
         self._last_extreme = None
         self._stable_count = 0
         self._last_emit = None
@@ -39,17 +45,20 @@ class StrokeDetector:
     def update(self, raw):
         """
         Feed the next insertion sample (0-100, int or float).
-        Returns (emit: bool, smoothed_pos: int).
+        Returns (emit: bool, pos: int).
         On the first call, always emits so the caller can send an initial position.
         """
+        raw = float(raw)
+
         if self._smoothed is None:
-            self._smoothed = float(raw)
-            self._prev = float(raw)
-            self._last_extreme = float(raw)
-            self._last_emit = float(raw)
+            self._smoothed = raw
+            self._prev = raw
+            self._last_extreme = raw
+            self._last_emit = raw
+            self._raw_extreme = raw
             return True, round(raw)
 
-        # EMA smoothing
+        # EMA smoothing (used only for direction detection)
         self._smoothed = self.ema_alpha * raw + (1 - self.ema_alpha) * self._smoothed
 
         delta = self._smoothed - self._prev
@@ -64,12 +73,25 @@ class StrokeDetector:
             new_dir = self._direction  # hold current direction through flat region
 
         emit = False
+        emit_pos = self._smoothed
 
-        # Extremum: direction reversal with sufficient amplitude from last extreme
+        # Track raw extremum in the current direction run
+        if self._direction == 1:
+            if raw > self._raw_extreme:
+                self._raw_extreme = raw
+        elif self._direction == -1:
+            if raw < self._raw_extreme:
+                self._raw_extreme = raw
+
+        # Extremum: direction reversal with sufficient amplitude from last emitted extreme.
+        # Emit the raw peak/trough, not the lagging EMA value.
         if new_dir != 0 and new_dir != self._direction and self._direction != 0:
-            if abs(self._smoothed - self._last_extreme) >= self.min_amplitude:
+            if abs(self._raw_extreme - self._last_extreme) >= self.min_amplitude:
                 emit = True
-                self._last_extreme = self._smoothed
+                emit_pos = self._raw_extreme
+                self._last_extreme = self._raw_extreme
+            # Reset raw extremum tracker for the new direction run
+            self._raw_extreme = raw
 
         if new_dir != 0:
             self._direction = new_dir
@@ -82,6 +104,7 @@ class StrokeDetector:
             self._stable_count += 1
             if self._stable_count >= self.stopped_window:
                 emit = True
+                emit_pos = self._smoothed
                 self._stable_count = 0
                 self._stopped_armed = False
 
@@ -90,9 +113,9 @@ class StrokeDetector:
             self._stopped_armed = True
 
         if emit:
-            self._last_emit = self._smoothed
+            self._last_emit = emit_pos
 
-        return emit, round(self._smoothed)
+        return emit, round(emit_pos)
 
     @property
     def smoothed(self):
