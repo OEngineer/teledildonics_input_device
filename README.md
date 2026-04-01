@@ -199,3 +199,8 @@ I recommend coating the device with body-safe silicone after it's working, or at
 
 ## Power consumption
 I've measured this at about 189µA during deep-sleep, and about 67mA during power-on (while connected via BLE).
+
+### License
+Licensed under the CERN Open Hardware Licence Version 2 - Strongly Reciprocal
+
+See LICENSE.txt 
